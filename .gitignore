@@ -26,7 +26,6 @@ vite.config.ts.timestamp-*
 src/lib/paraglide
 
 # shadcn components
-src/lib/components/ui
 
 # dev specific
 config/settings.yaml
@@ -35,3 +34,4 @@ config/oauth.json
 maxmind/geolite2-city.mmdb
 .vscode
 PROBLEMS.md
+SOLVE1.md
