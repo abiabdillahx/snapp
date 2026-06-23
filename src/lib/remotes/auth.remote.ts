@@ -1,5 +1,4 @@
 import { error, redirect } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { command, form, getRequestEvent, query } from '$app/server';
 import { getBetterAuth } from '$lib/auth/server';
 import { m } from '$lib/paraglide/messages';
@@ -59,11 +58,7 @@ const RegisterSchema = v.pipeAsync(
 			v.string(m.errors_non_empty()),
 			v.nonEmpty(m.errors_non_empty()),
 			v.checkAsync(async (username) => {
-				const { url } = getRequestEvent();
-				const config = settings.get();
-				let origin = url.origin;
-				if (dev) origin = origin.replace('http:', 'https:');
-				const host = config.hosts.find((h) => h.origin === origin);
+				const host = await getHost();
 				if (!host) return false;
 				const auth = await getBetterAuth(host);
 				const { available: isUsernameAvailable } = await auth.api.isUsernameAvailable({
@@ -104,7 +99,7 @@ export const requireUser = query(async () => {
 	const {
 		locals: { user }
 	} = getRequestEvent();
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 	return user;
 });
 
@@ -144,9 +139,9 @@ export const login = form(LoginSchema, async (login) => {
 		'twoFactorEnabled' in res.user &&
 		res?.user.twoFactorEnabled !== true
 	)
-		redirect(307, '/auth/setup-2fa');
-	if (res && 'twoFactorRedirect' in res) redirect(307, '/auth/2fa');
-	redirect(307, '/dashboard');
+		throw redirect(307, '/auth/setup-2fa');
+	if (res && 'twoFactorRedirect' in res) throw redirect(307, '/auth/2fa');
+	throw redirect(307, '/dashboard');
 });
 export const signup = form(RegisterSchema, async ({ _password, email, username }) => {
 	const { request } = getRequestEvent();
@@ -203,7 +198,7 @@ export const resetPassword = form(ResetPasswordSchema, async ({ _password, token
 		if (CONSTANTS.DEBUG) console.error('[debug] reset password error', err);
 		return false;
 	}
-	redirect(302, '/dashboard');
+	throw redirect(302, '/dashboard');
 });
 
 

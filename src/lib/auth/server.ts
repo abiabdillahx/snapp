@@ -30,9 +30,9 @@ import {
 } from 'better-auth/plugins';
 import { sveltekitCookies } from 'better-auth/svelte-kit';
 import { and, eq, isNotNull, sql } from 'drizzle-orm';
-import fs from 'node:fs/promises';
 
 import { ac, roles as r } from './permissions';
+import { readJsonFileWithExample } from '../server/config-files';
 
 const config = settings.get();
 export type AuthInstance = Awaited<ReturnType<typeof createBetterAuthClient>>;
@@ -45,9 +45,11 @@ class AuthCache {
 export const authCache = new AuthCache();
 
 const createBetterAuthClient = async (host: THost) => {
-	const oauthConfig = JSON.parse(
-		await fs.readFile('config/oauth.json', 'utf8')
-	) as GenericOAuthConfig[];
+	const oauthConfig = readJsonFileWithExample<GenericOAuthConfig[]>(
+		'config/oauth.json',
+		'config/oauth.example.json',
+		[]
+	);
 
 	const hostId = slugify(host.origin);
 

@@ -1,5 +1,4 @@
 import { error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { command, form, getRequestEvent } from '$app/server';
 import { authCache, getBetterAuth } from '$lib/auth/server';
 import { m } from '$lib/paraglide/messages';
@@ -7,8 +6,9 @@ import { PermissionSchema } from '$lib/schemas/host.schema';
 import { CONSTANTS } from '$lib/server/const';
 import { db } from '$lib/server/db';
 import { organizationRole } from '$lib/server/db/auth-schema';
-import { settings } from '$lib/server/settings';
 import { cleanupOrphanFolders } from '$lib/server/utils';
+import { requireHost } from '$lib/remotes/config.remote';
+import { settings } from '$lib/server/settings';
 import { slugify } from '$lib/utils';
 import { eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
@@ -20,10 +20,7 @@ export const deleteOrganizations = command(v.array(v.string()), async (ids) => {
 	await requireUser();
 	const { request, url } = getRequestEvent();
 	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	try {
 		const auth = await getBetterAuth(host);
 		const res = await Promise.all(
@@ -31,12 +28,16 @@ export const deleteOrganizations = command(v.array(v.string()), async (ids) => {
 				auth.api.deleteOrganization({ body: { organizationId: id }, headers: request.headers })
 			)
 		);
-		res
+		const deletedOrigins = res
 			.map((r) => JSON.parse(r?.metadata || '{}')?.origin as string)
-			.map((o) => {
-				authCache.auth.delete(slugify(o));
-				settings.set({ ...config, hosts: config.hosts.filter((h) => h.origin !== o) });
-			});
+			.filter(Boolean);
+		for (const origin of deletedOrigins) {
+			authCache.auth.delete(slugify(origin));
+		}
+		settings.set({
+			...config,
+			hosts: config.hosts.filter((host) => !deletedOrigins.includes(host.origin))
+		});
 
 		authCache.roles.delete(slugify(host.origin));
 		authCache.auth.delete(slugify(host.origin));
@@ -50,10 +51,7 @@ export const deleteTeams = command(v.array(v.string()), async (ids) => {
 	await requireUser();
 	const { request, url } = getRequestEvent();
 	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	try {
 		const auth = await getBetterAuth(host);
 		type Permission = Record<string, ['create' | 'delete' | 'read' | 'update']>;
@@ -104,11 +102,7 @@ const CreateOrganizationSchema = v.pipeAsync(
 			v.checkAsync(async (slug) => {
 				await requireUser();
 				const { request, url } = getRequestEvent();
-				const config = settings.get();
-				let origin = url.origin;
-				if (dev) origin = origin.replace('http:', 'https:');
-				const host = config.hosts.find((h) => h.origin === origin);
-				if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+				const host = requireHost(url, request.headers);
 				try {
 					const auth = await getBetterAuth(host);
 					await auth.api.checkOrganizationSlug({ body: { slug }, headers: request.headers });
@@ -126,10 +120,7 @@ export const createOrganization = form(CreateOrganizationSchema, async ({ name, 
 	await requireUser();
 	const { request, url } = getRequestEvent();
 	const config = settings.get();
-	let _origin = url.origin;
-	if (dev) _origin = _origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === _origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	try {
 		const auth = await getBetterAuth(host);
 		await auth.api.createOrganization({
@@ -185,12 +176,7 @@ export const createTeam = form(CreateTeamSchema, async ({ name, organizationId, 
 
 	const { request, url } = getRequestEvent();
 	const config = settings.get();
-
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 
 	try {
 		const auth = await getBetterAuth(host);
@@ -204,7 +190,7 @@ export const createTeam = form(CreateTeamSchema, async ({ name, organizationId, 
 			},
 			headers: request.headers
 		});
-		if (!hasPermission.success) error(403, { message: m.errors_unauthorized() });
+		if (!hasPermission.success) throw error(403, { message: m.errors_unauthorized() });
 		const team = await auth.api.createTeam({
 			body: {
 				name,
@@ -250,13 +236,7 @@ export const updatePermissions = command(v.array(v.object({id:v.string(),p:Permi
 	await requireUser();
 
 	const { request, url } = getRequestEvent();
-	const config = settings.get();
-
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	const auth = await getBetterAuth(host);
 
 	try {
@@ -269,7 +249,7 @@ export const updatePermissions = command(v.array(v.object({id:v.string(),p:Permi
 			},
 			headers: request.headers
 		});
-		if (!hasPermission.success) error(403, { message: m.errors_unauthorized() });
+		if (!hasPermission.success) throw error(403, { message: m.errors_unauthorized() });
 		await Promise.all(
 			roles.map(async (r) => {
 					await db
@@ -310,5 +290,3 @@ export const saveLogo = command(
 		return { filename: `/logos/${id}/${filenameWithExt}` };
 	}
 );
-
-

@@ -122,7 +122,7 @@ export const createURL = form(
 			throw error(500, { message: m.errors_generic() });
 		}
 
-		redirect(307, '/urls');
+		throw redirect(307, '/urls');
 	}
 );
 
@@ -213,7 +213,7 @@ export const updateURL = form(
 			throw error(500, { message: m.errors_generic() });
 		}
 
-		redirect(307, '/urls');
+		throw redirect(307, '/urls');
 	}
 );
 
@@ -340,6 +340,6 @@ export const trySecret = form(
 			throw err;
 		}
 		await logVisit(event, shortened);
-		redirect(307, shortened.originalUrl);
+		throw redirect(307, shortened.originalUrl);
 	}
 );

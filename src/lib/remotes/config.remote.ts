@@ -1,5 +1,4 @@
 import { error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { command, form, getRequestEvent, query } from '$app/server';
 import { authCache } from '$lib/auth/server';
 import { m } from '$lib/paraglide/messages';
@@ -18,30 +17,48 @@ import yaml from 'yaml';
 import { _uptime } from '../../hooks.server';
 import { requireUser } from './auth.remote';
 
-export const getHost = query(async () => {
-	const { url } = getRequestEvent();
-	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) error(400, { message: m.errors_unrecognized_host() });
+export const getRequestOrigin = (url: URL, headers?: Headers) => {
+	const forwardedProto = headers?.get('x-forwarded-proto')?.split(',')[0]?.trim();
+	const forwardedHost = headers?.get('x-forwarded-host')?.split(',')[0]?.trim();
+
+	if (forwardedHost) {
+		return `${forwardedProto || url.protocol.slice(0, -1)}://${forwardedHost}`;
+	}
+
+	return headers?.get('origin')?.trim() || url.origin;
+};
+
+export const getHostFromOrigin = (origin: string) => {
+	const { hosts } = settings.get();
+	return hosts.find((host) => host.origin === origin) || null;
+};
+
+export const requireHost = (url: URL, headers?: Headers) => {
+	const host = getHostFromOrigin(getRequestOrigin(url, headers));
+	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
 	return host;
+};
+
+export const getHost = query(async () => {
+	const { request, url } = getRequestEvent();
+	return requireHost(url, request.headers);
 });
 
 export const updateHostOptions = command(v.partial(HostSchema), async (schema) => {
 	await requireUser();
-	const { url } = getRequestEvent();
+	const { request, url } = getRequestEvent();
 	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const hostIdx = config.hosts.findIndex((h) => h.origin === origin);
-	if (hostIdx === -1) error(400, { message: m.errors_unrecognized_host() });
+	const origin = getRequestOrigin(url, request.headers);
+	const hostIdx = config.hosts.findIndex((host) => host.origin === origin);
+	if (hostIdx === -1) throw error(400, { message: m.errors_unrecognized_host() });
+
 	const host = lodash.merge({}, config.hosts[hostIdx], schema);
 	config.hosts.splice(hostIdx, 1, host);
 	settings.set(config);
 	getHost().set(host);
 	authCache.auth.delete(slugify(host.origin));
 });
+
 export const updateLimits = form(
 	v.object({
 		enabled: v.boolean(),
@@ -55,16 +72,16 @@ export const updateLimits = form(
 	}),
 	async ({ enabled, limits }) => {
 		await requireUser();
-		const { url } = getRequestEvent();
+		const { request, url } = getRequestEvent();
 		const config = settings.get();
-		let origin = url.origin;
-		if (dev) origin = origin.replace('http:', 'https:');
-		const hostIdx = config.hosts.findIndex((h) => h.origin === origin);
-		if (hostIdx === -1) error(400, { message: m.errors_unrecognized_host() });
+		const origin = getRequestOrigin(url, request.headers);
+		const hostIdx = config.hosts.findIndex((host) => host.origin === origin);
+		if (hostIdx === -1) throw error(400, { message: m.errors_unrecognized_host() });
+
 		const host = lodash.merge({}, config.hosts[hostIdx], {
 			options: {
-				disabled: {
-					limits: enabled
+				disable: {
+					limits: !enabled
 				},
 				limits: {
 					maxSnappPerUser: limits?.maxSnappPerUser,
@@ -73,27 +90,31 @@ export const updateLimits = form(
 				}
 			}
 		});
+
 		config.hosts.splice(hostIdx, 1, host);
 		settings.set(config);
 		getHost().set(host);
 		authCache.auth.delete(slugify(host.origin));
 	}
 );
+
 export const getSMTPInfo = query(async () => {
 	await requireUser();
 	const config = settings.get();
 	return config.smtp;
 });
+
 export const verifySMTP = query(async () => {
 	await requireUser();
 	const smtp = await getSMTP();
-	if (!smtp) return false;
-	return true;
+	return !!smtp;
 });
+
 export const updateSMTPOptions = command(SettingSchema.entries.smtp, (smtp) => {
 	const config = settings.get();
 	settings.set({ ...config, smtp });
 });
+
 export const updateSMTPForm = form(SettingSchema.entries.smtp, async (smtp) => {
 	const config = settings.get();
 	settings.set({ ...config, smtp });
@@ -103,13 +124,13 @@ export const updateSMTPForm = form(SettingSchema.entries.smtp, async (smtp) => {
 export const getServerInfo = query(async () => {
 	const _c = settings.get();
 	const cgroup =
-		(fs.existsSync('/proc/self/cgroup') && (await fs.readFileSync('/proc/self/cgroup', 'utf8'))) ||
-		undefined;
+		(fs.existsSync('/proc/self/cgroup') && fs.readFileSync('/proc/self/cgroup', 'utf8')) || undefined;
 	const match = cgroup?.match(/[0-9a-f]{64}/);
 	const containerId = match ? match[0].slice(0, 12) : 'n/a';
 	let runtime = 'unknown';
 	if (fs.existsSync('/.dockerenv')) runtime = 'docker';
 	else if (fs.existsSync('/run/.containerenv')) runtime = 'podman';
+
 	return {
 		appname: _c.appname,
 		arch: os.arch(),
@@ -119,7 +140,7 @@ export const getServerInfo = query(async () => {
 		memory: { free: os.freemem(), total: os.totalmem() },
 		platform: os.platform(),
 		runtime,
-		srv_uptime: timeDiff(new Date(new Date().getTime() - os.uptime() * 1000)),
+		srv_uptime: timeDiff(new Date(Date.now() - os.uptime() * 1000)),
 		uptime: timeDiff(new Date(_uptime))
 	};
 });
@@ -127,10 +148,12 @@ export const getServerInfo = query(async () => {
 export const getHostById = query(v.nullish(v.string()), async (id) => {
 	const { hosts } = settings.get();
 	if (!id) return { host: null, raw: null };
+
 	const organization = await db.query.organization.findFirst({
 		where: { id }
 	});
 	if (!organization) return { host: null, raw: null };
+
 	const host = hosts.find((h) => h.origin === JSON.parse(organization.metadata || '{}')?.origin);
 	const raw = yaml.stringify(host);
 	return { host, raw };
@@ -146,6 +169,7 @@ export const updateColumns = command(
 		cookies.set(cookie, JSON.stringify(columns), { maxAge: 60 * 60 * 24 * 365, path: '/' });
 	}
 );
+
 export const updateRows = command(
 	v.object({
 		cookie: v.string(),

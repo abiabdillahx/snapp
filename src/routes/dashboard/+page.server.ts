@@ -7,11 +7,11 @@ import {
 	getOrgVisitorOrganizationStats,
 	getUserActivityLog
 } from '$lib/server/metrics/helpers.js';
-import { error } from 'console';
+import { error } from '@sveltejs/kit';
 import { and, count, eq, gt, isNotNull, isNull, lte, or } from 'drizzle-orm';
 
 export const load = async ({ cookies, locals: { user }, parent }) => {
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 	try {
 		const now = new Date();
 

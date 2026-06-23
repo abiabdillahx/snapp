@@ -16,7 +16,7 @@ import { getHost } from '../remotes/config.remote';
 const getUmami = async (event: RequestEvent) => {
 	const userAgent = event.request.headers.get('user-agent')?.toString();
 	const host = await getHost();
-	if (!host.thirdparty?.umami?.url || !host.thirdparty?.umami?.url)
+	if (!host.thirdparty?.umami?.url || !host.thirdparty?.umami?.websiteId)
 		return {
 			event,
 			host,

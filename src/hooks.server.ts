@@ -8,6 +8,7 @@ import { member, organization, organizationRole } from '$lib/server/db/schema';
 import betterAuthHandle, { handle2fa } from '$lib/server/handles/better-auth.handle';
 import paraglideHandle from '$lib/server/handles/paraglide.handle';
 import { settings } from '$lib/server/settings';
+import { requireHost } from '$lib/remotes/config.remote';
 import { slugify } from '$lib/utils';
 import { generateId } from 'better-auth';
 import { generateRandomString } from 'better-auth/crypto';
@@ -60,7 +61,7 @@ export const init = async () => {
 	}
 
 	const config = settings.get();
-	const host = config.hosts[0]!;
+	const host = requireHost(event.url, event.request.headers);
 	const auth = await getBetterAuth(host);
 
 	for (const { email, username } of config.admin) {

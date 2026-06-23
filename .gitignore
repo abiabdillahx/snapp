@@ -34,3 +34,4 @@ config/oauth.json
 
 maxmind/geolite2-city.mmdb
 .vscode
+PROBLEMS.md

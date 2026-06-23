@@ -8,7 +8,7 @@ import { slugify } from '$lib/utils.js';
 import * as v from 'valibot';
 export const load = async ({ depends, locals: { user }, parent, request, url }) => {
 	depends('teams:load');
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 	const pagination = v.parse(EnforcedPaginationSchema, {
 		...Object.fromEntries(url.searchParams.entries()),
 		table: 'team'

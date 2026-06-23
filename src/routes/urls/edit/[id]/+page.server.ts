@@ -8,13 +8,13 @@ import { slugify } from '$lib/utils.js';
 import { desc, sql } from 'drizzle-orm/sql';
 
 export const load = async ({ locals: { user }, params: { id }, parent, request }) => {
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 
 	const record = await db.query.url.findFirst({
 		where: { id },
 		with: { tags: true, teams: true }
 	});
-	if (!record) redirect(307, '/urls');
+	if (!record) throw redirect(307, '/urls');
 
 	let allowed = false;
 

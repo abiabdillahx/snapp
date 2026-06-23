@@ -1,28 +1,26 @@
 import { error, redirect } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { getBetterAuth } from '$lib/auth/server.js';
 import { m } from '$lib/paraglide/messages.js';
 import { EnforcedPaginationSchema } from '$lib/schemas/pagination.schema';
 import { CONSTANTS } from '$lib/server/const';
 import { db } from '$lib/server/db/index.js';
 import { metric, session, tag, url, urlToTag } from '$lib/server/db/schema';
-import { settings } from '$lib/server/settings';
+import { requireHost } from '$lib/remotes/config.remote';
 import { count, desc, eq, sql } from 'drizzle-orm';
 import * as v from 'valibot';
+
 export const load = async ({ depends, locals: { user }, params: { id }, request, url: u }) => {
 	depends('users:load');
-	if (!user) redirect(307, '/auth/sign-in');
-	if (user.role === 'user') redirect(307, '/auth/dashboard');
-	const config = settings.get();
-	let origin = u.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	if (!user) throw redirect(307, '/auth/sign-in');
+	if (user.role === 'user') throw redirect(307, '/auth/dashboard');
+
+	const host = requireHost(u, request.headers);
 	const auth = await getBetterAuth(host);
 	const pagination = v.parse(EnforcedPaginationSchema, {
 		...Object.fromEntries(u.searchParams.entries()),
 		table: 'url'
 	});
+
 	try {
 		const member = (await auth.api.getUser({
 			headers: request.headers,
@@ -30,16 +28,16 @@ export const load = async ({ depends, locals: { user }, params: { id }, request,
 				id
 			}
 		})) as User;
-	const tags = db
-		.select({
-			count: sql<number>`
+		const tags = db
+			.select({
+				count: sql<number>`
 		(SELECT COUNT(*) FROM ${urlToTag} WHERE ${urlToTag.tagId} = ${tag.id})
 	  `,
-			id: tag.id,
-			tag: tag.tag
-		})
-		.from(tag)
-		.orderBy(desc(sql`count`));
+				id: tag.id,
+				tag: tag.tag
+			})
+			.from(tag)
+			.orderBy(desc(sql`count`));
 
 		const [urlCount] = await db
 			.select({ count: count() })
@@ -78,7 +76,6 @@ export const load = async ({ depends, locals: { user }, params: { id }, request,
 								}
 							}
 						: undefined,
-
 					pagination.query
 						? {
 								OR: [
@@ -93,7 +90,7 @@ export const load = async ({ depends, locals: { user }, params: { id }, request,
 			with: {
 				tags: true
 			}
-		})
+		});
 
 		return {
 			columnVisibility: pagination.columns,
@@ -101,12 +98,12 @@ export const load = async ({ depends, locals: { user }, params: { id }, request,
 			limit: pagination.limit,
 			member,
 			metrics: metrics?.count || 0,
-			tags:await tags,
+			tags: await tags,
 			urlCount: urlCount?.count || 0,
-			urls:await urls.then((urls)=>urls.map((u)=>({...u, secret:u.secret !== null ? true : false}))),
+			urls: await urls.then((rows) => rows.map((row) => ({ ...row, secret: row.secret !== null })))
 		};
-	} catch (error) {
-		if (CONSTANTS.DEBUG) console.error(error);
-		redirect(307, '/users');
+	} catch (caught) {
+		if (CONSTANTS.DEBUG) console.error(caught);
+		throw redirect(307, '/users');
 	}
 };

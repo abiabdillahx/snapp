@@ -5,7 +5,7 @@ import { tag, urlToTag } from '$lib/server/db/schema.js';
 import { desc, sql } from 'drizzle-orm/sql';
 
 export const load = async ({ locals: { user }, parent, request }) => {
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 
 	const tags = await db
 		.select({

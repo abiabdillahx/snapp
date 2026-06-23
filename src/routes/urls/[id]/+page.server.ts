@@ -10,7 +10,7 @@ import { and, eq, gte, lte, sql } from 'drizzle-orm';
 import * as v from 'valibot';
 
 export const load = async ({ locals: { user }, params: { id }, url }) => {
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 
 	const short = await db.query.url.findFirst({
 		where: {
@@ -19,7 +19,7 @@ export const load = async ({ locals: { user }, params: { id }, url }) => {
 		with: { tags: true, teams: true }
 	});
 
-	if (!short) redirect(307, '/urls');
+	if (!short) throw redirect(307, '/urls');
 
 		let checkTeam = true;
 

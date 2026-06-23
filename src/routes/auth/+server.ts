@@ -1,5 +1,5 @@
 import { redirect } from "@sveltejs/kit"
 
 export const GET = ()=>{
-    redirect(302,'/auth/sign-in')
+    throw redirect(302,'/auth/sign-in')
 }

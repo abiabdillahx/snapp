@@ -1,6 +1,6 @@
-import { dev } from '$app/environment';
 import { getRequestEvent } from '$app/server';
 import { m } from '$lib/paraglide/messages';
+import { getRequestOrigin } from '$lib/remotes/config.remote';
 import { settings } from '$lib/server/settings';
 import { render } from 'svelte/server';
 
@@ -21,8 +21,7 @@ export const sendVerificationMail = async ({
 	const smtp = await getSMTP();
 	const config = settings.get();
 	const { getClientAddress, request, url: requestUrl } = getRequestEvent();
-	let origin = requestUrl.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
+	const origin = getRequestOrigin(requestUrl, request.headers);
 	const linkToVerification = new URL(`/api/auth${url}`, origin).href;
 	const ip =
 		getClientAddress() ||
@@ -71,8 +70,7 @@ export const sendResetPasswordMail = async ({
 	const smtp = await getSMTP();
 	const config = settings.get();
 	const { getClientAddress, request, url: requestUrl } = getRequestEvent();
-	let origin = requestUrl.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
+	const origin = getRequestOrigin(requestUrl, request.headers);
 	const ip =
 		getClientAddress() ||
 		request.headers.get('x-forwarded-for')?.toString() ||
@@ -114,8 +112,7 @@ export const sendOtpMail = async ({ otp, user }: { otp: string; user: Partial<Us
 	const smtp = await getSMTP();
 	const config = settings.get();
 	const { getClientAddress, request, url: requestUrl } = getRequestEvent();
-	let origin = requestUrl.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
+	const origin = getRequestOrigin(requestUrl, request.headers);
 	const ip =
 		getClientAddress() ||
 		request.headers.get('x-forwarded-for')?.toString() ||
@@ -198,8 +195,7 @@ export const sendInvitationEmail = async ({
 	const config = settings.get();
 	const { getClientAddress, request, url: requestUrl } = getRequestEvent();
 
-	let origin = requestUrl.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
+	const origin = getRequestOrigin(requestUrl, request.headers);
 
 	const acceptLink = new URL(`/auth/invitation/${invite.invitation.id}`, origin).href;
 
@@ -269,8 +265,7 @@ export const sendInvitationToUser = async ({
 	const config = settings.get();
 	const { getClientAddress, request, url: requestUrl } = getRequestEvent();
 
-	let origin = requestUrl.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
+	const origin = getRequestOrigin(requestUrl, request.headers);
 
 
 	const ip =

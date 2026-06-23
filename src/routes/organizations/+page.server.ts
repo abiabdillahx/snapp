@@ -14,8 +14,8 @@ import yaml from 'yaml';
 
 export const load = async ({ depends, locals: { user }, request, url }) => {
 	depends('organization:load');
-	if (!user) redirect(307, '/auth/sign-in');
-	if (user.role === 'user') redirect(307, '/auth/dashboard');
+	if (!user) throw redirect(307, '/auth/sign-in');
+	if (user.role === 'user') throw redirect(307, '/auth/dashboard');
 
 	const pagination = v.parse(EnforcedPaginationSchema, {
 		...Object.fromEntries(url.searchParams.entries()),

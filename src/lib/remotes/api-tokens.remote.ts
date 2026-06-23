@@ -1,10 +1,9 @@
 import { error } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { command, form, getRequestEvent } from '$app/server';
 import { getBetterAuth } from '$lib/auth/server';
 import { m } from '$lib/paraglide/messages';
 import { CONSTANTS } from '$lib/server/const';
-import { settings } from '$lib/server/settings';
+import { requireHost } from '$lib/remotes/config.remote';
 import * as v from 'valibot';
 
 import { requireUser } from './auth.remote';
@@ -24,12 +23,8 @@ const APIKeySchema = v.object({
 
 export const createApiKey = form(APIKeySchema, async (payload) => {
 	const user = await requireUser();
-	const {  url } = getRequestEvent();
-	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) error(403, { message: m.errors_unrecognized_host() });
+	const { request, url } = getRequestEvent();
+	const host = requireHost(url, request.headers);
 	const auth = await getBetterAuth(host);
 	try {
 		const apiKey = await auth.api.createApiKey({
@@ -53,11 +48,7 @@ export const createApiKey = form(APIKeySchema, async (payload) => {
 export const deleteApiKeys = command(v.array(v.string()), async (ids) => {
 	await requireUser();
 	const { request, url } = getRequestEvent();
-	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) error(403, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	const auth = await getBetterAuth(host);
 	try {
 		await Promise.all(
@@ -71,4 +62,3 @@ export const deleteApiKeys = command(v.array(v.string()), async (ids) => {
 		throw error(400, { message: m.errors_generic() });
 	}
 });
-

@@ -8,7 +8,7 @@ import * as v from 'valibot';
 
 export const load = async ({ depends, locals: { user }, parent, url: u }) => {
 	depends('users:load');
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 	
 	const pagination = v.parse(EnforcedPaginationSchema, {
 		...Object.fromEntries(u.searchParams.entries()),

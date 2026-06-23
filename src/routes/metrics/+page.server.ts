@@ -4,12 +4,12 @@ import { getOrganizationDashboardMetrics } from '$lib/server/metrics/helpers';
 import * as v from 'valibot';
 
 export const load = async ({ locals: { user }, parent, url }) => {
-	if (!user) redirect(302, '/dashboard');
+	if (!user) throw redirect(302, '/dashboard');
 
 	const { activeOrganization: organization } = await parent();
 
 	if (!organization?.id) {
-		redirect(302, '/dashboard');
+		throw redirect(302, '/dashboard');
 	}
 
 	const endDate = new Date();

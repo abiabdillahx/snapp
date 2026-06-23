@@ -3,7 +3,7 @@ import { getBetterAuth } from '$lib/auth/server';
 import {  EnforcedPaginationSchema } from '$lib/schemas/pagination.schema';
 import * as v from 'valibot';
 export const load = async ({ locals: { user }, parent, request, url }) => {
-	if (!user) redirect(307, '/auth/sign-in');
+	if (!user) throw redirect(307, '/auth/sign-in');
 	const data = await parent();
 	const auth = await getBetterAuth(data.host);
 	const pagination = v.parse(EnforcedPaginationSchema, {...Object.fromEntries(url.searchParams.entries()), table:'apikey'});

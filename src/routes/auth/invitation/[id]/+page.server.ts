@@ -1,16 +1,12 @@
 import { error, redirect } from '@sveltejs/kit';
-import { dev } from '$app/environment';
 import { getBetterAuth } from '$lib/auth/server';
 import { m } from '$lib/paraglide/messages';
-import { settings } from '$lib/server/settings/index.js';
+import { requireHost } from '$lib/remotes/config.remote';
 
 export const load = async ({ params: { id }, request, url }) => {
-	const config = settings.get();
-	let origin = url.origin;
-	if (dev) origin = origin.replace('http:', 'https:');
-	const host = config.hosts.find((h) => h.origin === origin);
-	if (!host) throw error(400, { message: m.errors_unrecognized_host() });
+	const host = requireHost(url, request.headers);
 	const auth = await getBetterAuth(host);
+
 	try {
 		await auth.api.acceptInvitation({
 			body: {
@@ -18,10 +14,10 @@ export const load = async ({ params: { id }, request, url }) => {
 			},
 			headers: request.headers
 		});
-	} catch (err) {
-		console.error(err);
+	} catch (caught) {
+		console.error(caught);
 		throw error(400, { message: m.errors_generic() });
 	}
 
-	redirect(307, '/dashboard');
+	throw redirect(307, '/dashboard');
 };

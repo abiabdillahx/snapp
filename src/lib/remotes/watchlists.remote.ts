@@ -14,7 +14,7 @@ export const getUsernameWhitelist = query(PaginationSchema, async (pagination) =
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
 	const offset = (page! - 1) * limit!;
@@ -33,7 +33,7 @@ export const getDomainWhitelist = query(PaginationSchema, async (pagination) => 
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
@@ -53,7 +53,7 @@ export const getEmailWhitelist = query(PaginationSchema, async (pagination) => {
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
 	const offset = (page! - 1) * limit!;
@@ -72,7 +72,7 @@ export const getUsernameBlacklist = query(PaginationSchema, async (pagination) =
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
 	const offset = (page! - 1) * limit!;
@@ -91,7 +91,7 @@ export const getDomainBlacklist = query(PaginationSchema, async (pagination) => 
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
 	const offset = (page! - 1) * limit!;
@@ -110,7 +110,7 @@ export const getEmailBlacklist = query(PaginationSchema, async (pagination) => {
 	const user = await requireUser();
 	if (user.role !== 'admin') {
 		if (CONSTANTS.DEBUG) console.log('[auth] redirect not admin');
-		redirect(307, '/dashboard');
+		throw redirect(307, '/dashboard');
 	}
 	const { limit = 10, page = 1 } = pagination || { limit: 10, page: 1 };
 	const offset = (page! - 1) * limit!;
